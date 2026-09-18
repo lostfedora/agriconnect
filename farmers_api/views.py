@@ -82,11 +82,28 @@ class FarmerLogoutAPIView(APIView):
 
 
 class FarmerProfileAPIView(APIView):
+    """Get or update the authenticated farmer's account/profile data."""
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(FarmerProfileSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = FarmerProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def put(self, request):
+        # PUT is accepted for mobile clients, but behaves as a safe partial
+        # update so omitted profile fields are not accidentally erased.
+        return self.patch(request)
 
 
 

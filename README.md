@@ -135,3 +135,32 @@ Important endpoints:
 - `GET /api/farmers/me/` - farmer account details only.
 
 Product responses include `farm_name`, `farmer_name`, `description`, `images[]`, and `primary_image_url`. Expense, sale, project, and batch responses include readable farm/project/batch names where available so the Flutter app can display clean cards without extra lookups.
+
+## Farmer profile API
+
+Authenticated farmer profile data is available at:
+
+- `GET /api/farmers/me/` - retrieve the profile
+- `PATCH /api/farmers/me/` - update selected profile fields
+- `PUT /api/farmers/me/` - accepted as a safe partial update
+
+Send the DRF token as `Authorization: Token <token>`.
+
+Writable fields include `full_name`, `email`, `district`, `national_id`, `gender`, `date_of_birth`, `village`, `subcounty`, `primary_crop`, and `farming_experience_years`.
+
+`phone`, `account_type`, and verification flags are read-only. Phone changes should use an OTP-verified flow.
+
+Example PATCH body:
+
+```json
+{
+  "full_name": "Timothy Atwanzire",
+  "district": "Kasese",
+  "village": "Kisinga",
+  "subcounty": "Kisinga",
+  "primary_crop": "Coffee",
+  "farming_experience_years": 5
+}
+```
+
+Copy `.env.example` to `.env` and provide the production database, Django secret key, host, CSRF, and Yoola SMS settings before deployment.

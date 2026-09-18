@@ -107,7 +107,8 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "agrikonnect",
         "USER": "postgres",
-        "PASSWORD": "atwanzire",
+        # "PASSWORD": "atwanzire",
+        "PASSWORD":"tibaijuka",
         "HOST": "localhost",
         "PORT": "5432",
     }

@@ -143,14 +143,96 @@ class FarmerLoginSerializer(serializers.Serializer):
 
 
 class FarmerProfileSerializer(serializers.Serializer):
+    """Read and update the logged-in farmer profile.
+
+    Phone is intentionally read-only here because it can be used as a login
+    identifier. A phone change should go through an OTP verification flow.
+    """
+
     id = serializers.UUIDField(read_only=True)
-    username = serializers.CharField(read_only=True)
-    full_name = serializers.CharField(read_only=True)
+    full_name = serializers.CharField(max_length=255, required=False)
     phone = serializers.CharField(read_only=True, allow_null=True)
-    email = serializers.EmailField(read_only=True, allow_null=True)
-    district = serializers.CharField(read_only=True, allow_null=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    district = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     account_type = serializers.CharField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
+    is_phone_verified = serializers.BooleanField(read_only=True)
+    is_email_verified = serializers.BooleanField(read_only=True)
+
+    national_id = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    gender = serializers.ChoiceField(choices=["male", "female", "other"], required=False, allow_null=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    village = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    subcounty = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    primary_crop = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    farming_experience_years = serializers.IntegerField(required=False, min_value=0)
+
+    def to_representation(self, instance):
+        data = {
+            "id": instance.id,
+            "full_name": instance.full_name,
+            "phone": instance.phone,
+            "email": instance.email,
+            "district": instance.district,
+            "account_type": instance.account_type,
+            "is_verified": instance.is_verified,
+            "is_phone_verified": instance.is_phone_verified,
+            "is_email_verified": instance.is_email_verified,
+        }
+        profile = getattr(instance, "farmer_profile", None)
+        data.update({
+            "national_id": getattr(profile, "national_id", None),
+            "gender": getattr(profile, "gender", None),
+            "date_of_birth": getattr(profile, "date_of_birth", None),
+            "village": getattr(profile, "village", None),
+            "subcounty": getattr(profile, "subcounty", None),
+            "primary_crop": getattr(profile, "primary_crop", None),
+            "farming_experience_years": getattr(profile, "farming_experience_years", 0),
+        })
+        return super().to_representation(type("ProfileView", (), data)())
+
+    def validate_email(self, value):
+        if not value:
+            return None
+        value = value.strip().lower()
+        user = self.instance
+        qs = User.objects.filter(email__iexact=value)
+        if user is not None:
+            qs = qs.exclude(pk=user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def update(self, instance, validated_data):
+        from profiles.models import FarmerProfile
+
+        user_fields = {"full_name", "email", "district"}
+        profile_fields = {
+            "national_id", "gender", "date_of_birth", "village",
+            "subcounty", "primary_crop", "farming_experience_years",
+        }
+
+        old_email = instance.email
+        for field in user_fields:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+
+        if "email" in validated_data and validated_data["email"] != old_email:
+            instance.is_email_verified = False
+
+        instance.save()
+
+        profile, _ = FarmerProfile.objects.get_or_create(
+            user=instance,
+            defaults={"district": instance.district},
+        )
+        for field in profile_fields:
+            if field in validated_data:
+                setattr(profile, field, validated_data[field])
+        if "district" in validated_data:
+            profile.district = validated_data["district"]
+        profile.save()
+        return instance
 
 
 class OfflineModelSerializer(serializers.ModelSerializer):
